@@ -54,7 +54,7 @@ class ZombieComponent extends CircleComponent with HasGameReference<ZombieSurviv
     await super.onLoad();
     add(CircleHitbox());
 
-    final zombieSvg = await Svg.load('assets/svg/zombie.svg');
+    final zombieSvg = await Svg.load('svg/zombie.svg');
     _zombieVisual = SvgComponent(
       svg: zombieSvg,
       size: Vector2.all(38),

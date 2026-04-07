@@ -55,7 +55,7 @@ class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurviv
     await super.onLoad();
     add(CircleHitbox());
 
-    final playerSvg = await Svg.load('assets/svg/player.svg');
+    final playerSvg = await Svg.load('svg/player.svg');
     _bodyVisual = SvgComponent(
       svg: playerSvg,
       size: Vector2.all(40),
@@ -64,7 +64,7 @@ class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurviv
     );
     add(_bodyVisual);
 
-    final weaponSvg = await Svg.load('assets/svg/weapon.svg');
+    final weaponSvg = await Svg.load('svg/weapon.svg');
     _weaponVisual = SvgComponent(
       svg: weaponSvg,
       size: Vector2(30, 22),
@@ -187,7 +187,7 @@ class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurviv
   void _updateArmorVisual() {
     _armorVisual?.removeFromParent();
     if (_equippedArmor == null) return;
-    Svg.load('assets/svg/armor.svg').then((svg) {
+    Svg.load('svg/armor.svg').then((svg) {
       _armorVisual = SvgComponent(
         svg: svg,
         size: Vector2.all(42),
