@@ -107,6 +107,7 @@ class PlayerComponent extends PositionComponent with HasGameReference<ZombieSurv
     _animTimer += dt;
 
     position += _moveDirection * moveSpeed * dt;
+    _keepPlayerOnScreen();
 
     final walkBob = sin(_animTimer * 8) * 1.8;
     _bodyVisual.position.y = walkBob;
@@ -267,6 +268,16 @@ class PlayerComponent extends PositionComponent with HasGameReference<ZombieSurv
     _equippedArmor = null;
     _armorVisual?.removeFromParent();
     _bodyVisual.paint.color = const Color(0xFF42A5F5);
+  }
+
+
+  void _keepPlayerOnScreen() {
+    final cameraCenter = game.camera.viewfinder.position;
+    final halfWidth = game.size.x / 2;
+    final halfHeight = game.size.y / 2;
+
+    position.x = position.x.clamp(cameraCenter.x - halfWidth + radius, cameraCenter.x + halfWidth - radius);
+    position.y = position.y.clamp(cameraCenter.y - halfHeight + radius, cameraCenter.y + halfHeight - radius);
   }
 
   void _recalculateStats() {
