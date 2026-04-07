@@ -28,7 +28,6 @@ class LootPopupComponent extends TextComponent {
 
     _lifetime -= dt;
     position.y -= _moveSpeed * dt;
-    opacity = (_lifetime / 0.9).clamp(0, 1);
 
     if (_lifetime <= 0) {
       removeFromParent();
