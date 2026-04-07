@@ -22,7 +22,6 @@ class ZombieSurvivalGame extends FlameGame with TapCallbacks {
   ZombieSurvivalGame() : random = Random();
 
   final Random random;
-  final Vector2 worldSize = Vector2(2600, 2600);
   late final PlayerComponent player;
   final List<ZombieComponent> zombies = [];
   final List<BulletComponent> bullets = [];
@@ -52,10 +51,11 @@ class ZombieSurvivalGame extends FlameGame with TapCallbacks {
   @override
   Future<void> onLoad() async {
     await super.onLoad();
-    player = PlayerComponent(position: worldSize / 2);
+    player = PlayerComponent(position: Vector2.zero());
     add(player);
     camera.viewfinder.anchor = Anchor.center;
     camera.follow(player);
+    camera.viewfinder.position = player.position.clone();
   }
 
   @override
@@ -253,7 +253,7 @@ class ZombieSurvivalGame extends FlameGame with TapCallbacks {
     bullets.clear();
 
     player.resetStats();
-    player.position = worldSize / 2;
+    player.position = Vector2.zero();
 
     overlays.remove(GameOverOverlay.id);
     overlays.remove(LevelUpOverlay.id);

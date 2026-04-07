@@ -107,7 +107,6 @@ class PlayerComponent extends PositionComponent with HasGameReference<ZombieSurv
     _animTimer += dt;
 
     position += _moveDirection * moveSpeed * dt;
-    _clampToWorldBounds();
 
     final walkBob = sin(_animTimer * 8) * 1.8;
     _bodyVisual.position.y = walkBob;
@@ -277,9 +276,4 @@ class PlayerComponent extends PositionComponent with HasGameReference<ZombieSurv
     currentHp = (maxHp * hpRatio).clamp(0, maxHp);
   }
 
-  void _clampToWorldBounds() {
-    final worldSize = game.worldSize;
-    position.x = position.x.clamp(radius, worldSize.x - radius);
-    position.y = position.y.clamp(radius, worldSize.y - radius);
-  }
 }
