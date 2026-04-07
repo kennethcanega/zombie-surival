@@ -1,3 +1,5 @@
+import 'package:flame/components.dart';
+
 import '../components/bullet_component.dart';
 import '../components/player_component.dart';
 import '../components/zombie_component.dart';
@@ -32,19 +34,18 @@ class AttackSystem {
     return nearest;
   }
 
-  BulletComponent createBullet({
+  BulletComponent createBulletInDirection({
     required PlayerComponent player,
-    required ZombieComponent target,
+    required Vector2 direction,
     required double damage,
     required double speed,
     required double radius,
     required double splashRadius,
     required int pierce,
   }) {
-    final heading = (target.position - player.position).normalized();
     return BulletComponent(
       position: player.position.clone(),
-      direction: heading,
+      direction: direction,
       damage: damage,
       speed: speed,
       radius: radius,

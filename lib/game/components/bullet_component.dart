@@ -2,6 +2,7 @@ import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 
 import '../zombie_survival_game.dart';
+import 'explosion_component.dart';
 
 class BulletComponent extends CircleComponent with HasGameReference<ZombieSurvivalGame> {
   BulletComponent({
@@ -52,6 +53,7 @@ class BulletComponent extends CircleComponent with HasGameReference<ZombieSurviv
             splashZombie.takeDamage(damage);
           }
         }
+        game.add(ExplosionComponent(position: position.clone(), baseRadius: splashRadius * 0.45));
         removeFromParent();
         return;
       }
@@ -63,7 +65,5 @@ class BulletComponent extends CircleComponent with HasGameReference<ZombieSurviv
       }
       return;
     }
-
-    return;
   }
 }

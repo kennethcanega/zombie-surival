@@ -3,20 +3,15 @@ import 'dart:math';
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:flame_svg/flame_svg.dart';
-import 'package:flutter/material.dart';
-
 import '../systems/armor.dart';
 import '../systems/attack_system.dart';
 import '../systems/weapon.dart';
 import '../zombie_survival_game.dart';
 
-class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurvivalGame> {
-  PlayerComponent({required super.position})
-      : super(
-          radius: 16,
-          anchor: Anchor.center,
-          paint: Paint()..color = Colors.transparent,
-        );
+class PlayerComponent extends PositionComponent with HasGameReference<ZombieSurvivalGame> {
+  PlayerComponent({required super.position}) : super(anchor: Anchor.center, size: Vector2.all(34));
+
+  static const double collisionRadius = 16;
 
   double moveSpeed = 170;
   double maxHp = 100;
@@ -42,6 +37,11 @@ class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurviv
   final Set<ArmorTier> _ownedArmors = {};
   ArmorTier? _equippedArmor;
 
+  double get radius => collisionRadius;
+  double get agility => moveSpeed;
+  double get vitality => maxHp;
+  double get frenzy => _fireRateMultiplier;
+
   WeaponSpec get currentWeapon => weaponCatalog.firstWhere((w) => w.tier == _equippedWeapon);
   ArmorSpec? get equippedArmor =>
       _equippedArmor == null ? null : armorCatalog.firstWhere((a) => a.tier == _equippedArmor);
@@ -53,12 +53,12 @@ class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurviv
   @override
   Future<void> onLoad() async {
     await super.onLoad();
-    add(CircleHitbox());
+    add(CircleHitbox(radius: collisionRadius));
 
     final playerSvg = await Svg.load('svg/player.svg');
     _bodyVisual = SvgComponent(
       svg: playerSvg,
-      size: Vector2.all(40),
+      size: Vector2.all(42),
       anchor: Anchor.center,
       position: Vector2.zero(),
       priority: 2,
@@ -104,7 +104,7 @@ class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurviv
     if (_damageFlashTimer > 0) {
       _damageFlashTimer -= dt;
       if (_damageFlashTimer <= 0) {
-        opacity = 1;
+        _bodyVisual.opacity = 1;
       }
     }
   }
@@ -118,13 +118,13 @@ class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurviv
   }
 
   void _shoot() {
-    final target = _attackSystem.findNearestZombie(player: this, zombies: game.zombies);
-    if (target == null) return;
-
     final weapon = currentWeapon;
-    final bullet = _attackSystem.createBullet(
+    final bulletDirection = _aimDirection.length2 > 0.001 ? _aimDirection.normalized() : _autoAimDirection();
+    if (bulletDirection.length2 <= 0.0001) return;
+
+    final bullet = _attackSystem.createBulletInDirection(
       player: this,
-      target: target,
+      direction: bulletDirection,
       damage: damage * weapon.damageMultiplier,
       speed: weapon.bulletSpeed,
       radius: weapon.bulletRadius,
@@ -132,11 +132,15 @@ class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurviv
       pierce: weapon.pierce,
     );
 
-    if (_aimDirection.length2 > 0.001) {
-      bullet.direction.setFrom(_aimDirection.normalized());
-    }
-
     game.addBullet(bullet);
+  }
+
+  Vector2 _autoAimDirection() {
+    final target = _attackSystem.findNearestZombie(player: this, zombies: game.zombies);
+    if (target == null) {
+      return Vector2.zero();
+    }
+    return (target.position - position).normalized();
   }
 
   bool isWeaponOwned(WeaponTier tier) => _ownedWeapons.contains(tier);
@@ -221,7 +225,7 @@ class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurviv
     final reduction = equippedArmor?.damageReduction ?? 0;
     final reducedDamage = amount * (1 - reduction);
     currentHp = max(0, currentHp - reducedDamage);
-    opacity = 0.5;
+    _bodyVisual.opacity = 0.5;
     _damageFlashTimer = 0.3;
   }
 
@@ -243,7 +247,7 @@ class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurviv
     _ownedArmors.clear();
     _equippedArmor = null;
     _armorVisual?.removeFromParent();
-    opacity = 1;
+    _bodyVisual.opacity = 1;
   }
 
   void _recalculateStats() {
