@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
@@ -31,6 +33,21 @@ class ZombieComponent extends CircleComponent with HasGameReference<ZombieSurviv
   Future<void> onLoad() async {
     await super.onLoad();
     add(CircleHitbox());
+  }
+
+  @override
+  void render(Canvas canvas) {
+    super.render(canvas);
+
+    final width = radius * 2.2;
+    final hpPercent = (currentHp / maxHp).clamp(0, 1).toDouble();
+    final barRect = Rect.fromLTWH(-width / 2, -radius - 10, width, 4);
+
+    canvas.drawRect(barRect, Paint()..color = Colors.black54);
+    canvas.drawRect(
+      Rect.fromLTWH(barRect.left, barRect.top, width * hpPercent, barRect.height),
+      Paint()..color = const Color(0xFFE53935),
+    );
   }
 
   @override
