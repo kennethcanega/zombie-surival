@@ -35,7 +35,7 @@ class AttackSystem {
   }
 
   BulletComponent createBulletInDirection({
-    required PlayerComponent player,
+    required Vector2 origin,
     required Vector2 direction,
     required double damage,
     required double speed,
@@ -44,7 +44,7 @@ class AttackSystem {
     required int pierce,
   }) {
     return BulletComponent(
-      position: player.position.clone(),
+      position: origin.clone(),
       direction: direction,
       damage: damage,
       speed: speed,

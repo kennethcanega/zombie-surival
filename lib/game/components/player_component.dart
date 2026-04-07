@@ -144,8 +144,9 @@ class PlayerComponent extends PositionComponent with HasGameReference<ZombieSurv
     final bulletDirection = _aimDirection.length2 > 0.001 ? _aimDirection.normalized() : _autoAimDirection();
     if (bulletDirection.length2 <= 0.0001) return;
 
+    final muzzlePosition = position + bulletDirection * (radius + 12);
     final bullet = _attackSystem.createBulletInDirection(
-      player: this,
+      origin: muzzlePosition,
       direction: bulletDirection,
       damage: damage * weapon.damageMultiplier,
       speed: weapon.bulletSpeed,
@@ -277,7 +278,7 @@ class PlayerComponent extends PositionComponent with HasGameReference<ZombieSurv
   }
 
   void _clampToWorldBounds() {
-    final worldSize = game.size;
+    final worldSize = game.worldSize;
     position.x = position.x.clamp(radius, worldSize.x - radius);
     position.y = position.y.clamp(radius, worldSize.y - radius);
   }
