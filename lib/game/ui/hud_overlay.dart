@@ -6,6 +6,8 @@ import '../systems/armor.dart';
 import '../systems/weapon.dart';
 import '../zombie_survival_game.dart';
 
+enum TopMenu { none, profile, shop, inventory }
+
 class HudOverlay extends StatefulWidget {
   const HudOverlay({required this.game, super.key});
 
@@ -18,9 +20,7 @@ class HudOverlay extends StatefulWidget {
 
 class _HudOverlayState extends State<HudOverlay> {
   Timer? _refreshTimer;
-  bool _showProfile = true;
-  bool _showShop = true;
-  bool _showInventory = true;
+  TopMenu _activeMenu = TopMenu.none;
 
   @override
   void initState() {
@@ -36,119 +36,49 @@ class _HudOverlayState extends State<HudOverlay> {
     super.dispose();
   }
 
+  void _toggleMenu(TopMenu menu) {
+    setState(() {
+      _activeMenu = _activeMenu == menu ? TopMenu.none : menu;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    final game = widget.game;
-    final hpPercent = (game.player.currentHp / game.player.maxHp).clamp(0, 1).toDouble();
-    final expPercent = (game.exp / game.expToNextLevel).clamp(0, 1).toDouble();
-
     return Align(
-      alignment: Alignment.topLeft,
-      child: Container(
-        margin: const EdgeInsets.all(12),
-        padding: const EdgeInsets.all(12),
-        width: 320,
-        decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.45),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: SingleChildScrollView(
+      alignment: Alignment.topCenter,
+      child: SafeArea(
+        child: Container(
+          margin: const EdgeInsets.only(top: 8),
+          padding: const EdgeInsets.all(8),
+          width: 360,
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.5),
+            borderRadius: BorderRadius.circular(10),
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _toggleHeader('Profile', _showProfile, () => setState(() => _showProfile = !_showProfile)),
-              if (_showProfile) ...[
-                Text('Day: ${game.day}', style: const TextStyle(color: Colors.white)),
-                Text('Level: ${game.level}', style: const TextStyle(color: Colors.white)),
-                Text('Kills: ${game.kills}', style: const TextStyle(color: Colors.white)),
-                Text('Money: \$${game.money}', style: const TextStyle(color: Colors.amberAccent)),
-                Text('Status: ${game.playerStatus}', style: const TextStyle(color: Colors.lightGreenAccent)),
-                Text('Weapon: ${game.player.currentWeapon.name}', style: const TextStyle(color: Colors.white)),
-                Text(
-                  'Armor: ${game.player.equippedArmor?.name ?? 'None'}',
-                  style: const TextStyle(color: Colors.white),
-                ),
+              Row(
+                children: [
+                  _menuButton('Profile', TopMenu.profile),
+                  const SizedBox(width: 6),
+                  _menuButton('Shop', TopMenu.shop),
+                  const SizedBox(width: 6),
+                  _menuButton('Inventory', TopMenu.inventory),
+                ],
+              ),
+              if (_activeMenu != TopMenu.none) ...[
                 const SizedBox(height: 8),
-                const Text('HP', style: TextStyle(color: Colors.white)),
-                LinearProgressIndicator(value: hpPercent, minHeight: 8),
-                const SizedBox(height: 8),
-                const Text('EXP', style: TextStyle(color: Colors.white)),
-                LinearProgressIndicator(value: expPercent, minHeight: 8, color: Colors.amber),
-                const SizedBox(height: 8),
-                Text(
-                  'Day Time Left: ${game.daySystem.timeLeft.clamp(0, 999).toStringAsFixed(1)}s',
-                  style: const TextStyle(color: Colors.white),
-                ),
-              ],
-              const SizedBox(height: 10),
-              _toggleHeader('Shop', _showShop, () => setState(() => _showShop = !_showShop)),
-              if (_showShop) ...[
-                const Text('Buy Weapons', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                ...weaponCatalog.map((weapon) {
-                  final owned = game.player.isWeaponOwned(weapon.tier);
-                  return _shopRow(
-                    label: weapon.name,
-                    price: weapon.cost,
-                    owned: owned,
-                    onBuy: () {
-                      game.buyWeapon(weapon.tier);
-                      setState(() {});
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 220),
+                  child: SingleChildScrollView(
+                    child: switch (_activeMenu) {
+                      TopMenu.profile => _buildProfile(),
+                      TopMenu.shop => _buildShop(),
+                      TopMenu.inventory => _buildInventory(),
+                      TopMenu.none => const SizedBox.shrink(),
                     },
-                  );
-                }),
-                const SizedBox(height: 8),
-                const Text('Buy Armors', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                ...armorCatalog.map((armor) {
-                  final owned = game.player.isArmorOwned(armor.tier);
-                  return _shopRow(
-                    label: armor.name,
-                    price: armor.cost,
-                    owned: owned,
-                    onBuy: () {
-                      game.buyArmor(armor.tier);
-                      setState(() {});
-                    },
-                  );
-                }),
-              ],
-              const SizedBox(height: 10),
-              _toggleHeader('Inventory', _showInventory, () => setState(() => _showInventory = !_showInventory)),
-              if (_showInventory) ...[
-                const Text('Equip Weapon', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: game.player.ownedWeapons.map((weapon) {
-                    final selected = game.player.currentWeapon.tier == weapon.tier;
-                    return ChoiceChip(
-                      label: Text(weapon.name),
-                      selected: selected,
-                      onSelected: (_) {
-                        game.equipWeapon(weapon.tier);
-                        setState(() {});
-                      },
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 8),
-                const Text('Equip Armor', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                if (game.player.ownedArmors.isEmpty)
-                  const Text('No armor yet. Defeat zombies for drops.', style: TextStyle(color: Colors.white70)),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: game.player.ownedArmors.map((armor) {
-                    final selected = game.player.equippedArmor?.tier == armor.tier;
-                    return ChoiceChip(
-                      label: Text(armor.name),
-                      selected: selected,
-                      onSelected: (_) {
-                        game.equipArmor(armor.tier);
-                        setState(() {});
-                      },
-                    );
-                  }).toList(),
+                  ),
                 ),
               ],
             ],
@@ -158,16 +88,127 @@ class _HudOverlayState extends State<HudOverlay> {
     );
   }
 
-  Widget _toggleHeader(String title, bool shown, VoidCallback onTap) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  Widget _menuButton(String label, TopMenu menu) {
+    final selected = _activeMenu == menu;
+    return Expanded(
+      child: ElevatedButton(
+        onPressed: () => _toggleMenu(menu),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: selected ? Colors.orange : const Color(0xFF263238),
+          minimumSize: const Size.fromHeight(34),
+        ),
+        child: Text(label),
+      ),
+    );
+  }
+
+  Widget _buildProfile() {
+    final game = widget.game;
+    final hpPercent = (game.player.currentHp / game.player.maxHp).clamp(0, 1).toDouble();
+    final expPercent = (game.exp / game.expToNextLevel).clamp(0, 1).toDouble();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        IconButton(
-          constraints: const BoxConstraints(),
-          visualDensity: VisualDensity.compact,
-          onPressed: onTap,
-          icon: Icon(shown ? Icons.visibility : Icons.visibility_off, color: Colors.white),
+        Text('Day: ${game.day}', style: const TextStyle(color: Colors.white)),
+        Text('Level: ${game.level}', style: const TextStyle(color: Colors.white)),
+        Text('Kills: ${game.kills}', style: const TextStyle(color: Colors.white)),
+        Text('Money: \$${game.money}', style: const TextStyle(color: Colors.amberAccent)),
+        Text('Status: ${game.playerStatus}', style: const TextStyle(color: Colors.lightGreenAccent)),
+        Text('Weapon: ${game.player.currentWeapon.name}', style: const TextStyle(color: Colors.white)),
+        Text(
+          'Armor: ${game.player.equippedArmor?.name ?? 'None'}',
+          style: const TextStyle(color: Colors.white),
+        ),
+        const SizedBox(height: 8),
+        const Text('HP', style: TextStyle(color: Colors.white)),
+        LinearProgressIndicator(value: hpPercent, minHeight: 8),
+        const SizedBox(height: 8),
+        const Text('EXP', style: TextStyle(color: Colors.white)),
+        LinearProgressIndicator(value: expPercent, minHeight: 8, color: Colors.amber),
+        const SizedBox(height: 8),
+        Text(
+          'Day Time Left: ${game.daySystem.timeLeft.clamp(0, 999).toStringAsFixed(1)}s',
+          style: const TextStyle(color: Colors.white),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildShop() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Buy Weapons', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        ...weaponCatalog.map((weapon) {
+          final owned = widget.game.player.isWeaponOwned(weapon.tier);
+          return _shopRow(
+            label: weapon.name,
+            price: weapon.cost,
+            owned: owned,
+            onBuy: () {
+              widget.game.buyWeapon(weapon.tier);
+              setState(() {});
+            },
+          );
+        }),
+        const SizedBox(height: 8),
+        const Text('Buy Armors', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        ...armorCatalog.map((armor) {
+          final owned = widget.game.player.isArmorOwned(armor.tier);
+          return _shopRow(
+            label: armor.name,
+            price: armor.cost,
+            owned: owned,
+            onBuy: () {
+              widget.game.buyArmor(armor.tier);
+              setState(() {});
+            },
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _buildInventory() {
+    final game = widget.game;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Equip Weapon', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: game.player.ownedWeapons.map((weapon) {
+            final selected = game.player.currentWeapon.tier == weapon.tier;
+            return ChoiceChip(
+              label: Text(weapon.name),
+              selected: selected,
+              onSelected: (_) {
+                game.equipWeapon(weapon.tier);
+                setState(() {});
+              },
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 8),
+        const Text('Equip Armor', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        if (game.player.ownedArmors.isEmpty)
+          const Text('No armor yet. Defeat zombies for drops.', style: TextStyle(color: Colors.white70)),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: game.player.ownedArmors.map((armor) {
+            final selected = game.player.equippedArmor?.tier == armor.tier;
+            return ChoiceChip(
+              label: Text(armor.name),
+              selected: selected,
+              onSelected: (_) {
+                game.equipArmor(armor.tier);
+                setState(() {});
+              },
+            );
+          }).toList(),
         ),
       ],
     );

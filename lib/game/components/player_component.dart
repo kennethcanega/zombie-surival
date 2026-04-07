@@ -1,8 +1,8 @@
 import 'dart:math';
-import 'dart:ui';
 
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
+import 'package:flame_svg/flame_svg.dart';
 import 'package:flutter/material.dart';
 
 import '../systems/armor.dart';
@@ -11,13 +11,11 @@ import '../systems/weapon.dart';
 import '../zombie_survival_game.dart';
 
 class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurvivalGame> {
-  static const Color _baseColor = Color(0xFF42A5F5);
-
   PlayerComponent({required super.position})
       : super(
-          radius: 14,
+          radius: 16,
           anchor: Anchor.center,
-          paint: Paint()..color = _baseColor,
+          paint: Paint()..color = Colors.transparent,
         );
 
   double moveSpeed = 170;
@@ -26,6 +24,10 @@ class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurviv
   double damage = 15;
 
   final AttackSystem _attackSystem = const AttackSystem();
+
+  late final SvgComponent _bodyVisual;
+  late final SvgComponent _weaponVisual;
+  SvgComponent? _armorVisual;
 
   Vector2 _moveDirection = Vector2.zero();
   Vector2 _aimDirection = Vector2.zero();
@@ -41,9 +43,8 @@ class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurviv
   ArmorTier? _equippedArmor;
 
   WeaponSpec get currentWeapon => weaponCatalog.firstWhere((w) => w.tier == _equippedWeapon);
-  ArmorSpec? get equippedArmor => _equippedArmor == null
-      ? null
-      : armorCatalog.firstWhere((a) => a.tier == _equippedArmor);
+  ArmorSpec? get equippedArmor =>
+      _equippedArmor == null ? null : armorCatalog.firstWhere((a) => a.tier == _equippedArmor);
   List<WeaponSpec> get ownedWeapons =>
       weaponCatalog.where((w) => _ownedWeapons.contains(w.tier)).toList(growable: false);
   List<ArmorSpec> get ownedArmors =>
@@ -53,37 +54,24 @@ class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurviv
   Future<void> onLoad() async {
     await super.onLoad();
     add(CircleHitbox());
-  }
 
-  @override
-  void render(Canvas canvas) {
-    final walkBob = sin(_animTimer * 8) * 1.5;
-    canvas.save();
-    canvas.translate(0, walkBob);
-    super.render(canvas);
-
-    final gunLength = 14 + currentWeapon.damageMultiplier * 2;
-    final angle = _aimDirection.length2 > 0.001 ? _aimDirection.screenAngle() : 0.0;
-    canvas.save();
-    canvas.rotate(angle);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(Rect.fromLTWH(6, -2, gunLength, 4), const Radius.circular(2)),
-      Paint()..color = const Color(0xFFFFB74D),
+    final playerSvg = await Svg.load('assets/svg/player.svg');
+    _bodyVisual = SvgComponent(
+      svg: playerSvg,
+      size: Vector2.all(40),
+      anchor: Anchor.center,
+      position: Vector2.zero(),
     );
-    canvas.restore();
+    add(_bodyVisual);
 
-    if (equippedArmor != null) {
-      canvas.drawCircle(
-        Offset.zero,
-        radius + 4,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2.5
-          ..color = const Color(0xFFB0BEC5),
-      );
-    }
-
-    canvas.restore();
+    final weaponSvg = await Svg.load('assets/svg/weapon.svg');
+    _weaponVisual = SvgComponent(
+      svg: weaponSvg,
+      size: Vector2(30, 22),
+      anchor: Anchor.centerLeft,
+      position: Vector2(10, 0),
+    );
+    add(_weaponVisual);
   }
 
   @override
@@ -97,6 +85,13 @@ class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurviv
     position += _moveDirection * moveSpeed * dt;
     _clampToWorldBounds();
 
+    final walkBob = sin(_animTimer * 8) * 1.8;
+    _bodyVisual.position.y = walkBob;
+
+    final aimAngle = _aimDirection.length2 > 0.001 ? _aimDirection.screenAngle() : 0.0;
+    _weaponVisual.angle = aimAngle;
+    _weaponVisual.scale = Vector2.all(1 + currentWeapon.damageMultiplier * 0.08);
+
     _attackTimer += dt;
     if (_attackTimer >= currentWeapon.cooldown / _fireRateMultiplier) {
       _attackTimer = 0;
@@ -106,7 +101,7 @@ class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurviv
     if (_damageFlashTimer > 0) {
       _damageFlashTimer -= dt;
       if (_damageFlashTimer <= 0) {
-        paint.color = _baseColor;
+        opacity = 1;
       }
     }
   }
@@ -177,6 +172,7 @@ class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurviv
     if (!_ownedArmors.contains(tier)) return false;
     _equippedArmor = tier;
     _recalculateStats();
+    _updateArmorVisual();
     return true;
   }
 
@@ -184,15 +180,30 @@ class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurviv
     final added = _ownedArmors.add(tier);
     _equippedArmor ??= tier;
     _recalculateStats();
+    _updateArmorVisual();
     return added;
+  }
+
+  void _updateArmorVisual() {
+    _armorVisual?.removeFromParent();
+    if (_equippedArmor == null) return;
+    Svg.load('assets/svg/armor.svg').then((svg) {
+      _armorVisual = SvgComponent(
+        svg: svg,
+        size: Vector2.all(42),
+        anchor: Anchor.center,
+        position: Vector2.zero(),
+      );
+      add(_armorVisual!);
+    });
   }
 
   void takeDamage(double amount) {
     final reduction = equippedArmor?.damageReduction ?? 0;
     final reducedDamage = amount * (1 - reduction);
     currentHp = max(0, currentHp - reducedDamage);
-    paint.color = const Color(0xFFE53935);
-    _damageFlashTimer = 0.5;
+    opacity = 0.5;
+    _damageFlashTimer = 0.3;
   }
 
   void resetStats() {
@@ -212,7 +223,8 @@ class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurviv
     _equippedWeapon = WeaponTier.pistol;
     _ownedArmors.clear();
     _equippedArmor = null;
-    paint.color = _baseColor;
+    _armorVisual?.removeFromParent();
+    opacity = 1;
   }
 
   void _recalculateStats() {

@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
+import 'package:flame_svg/flame_svg.dart';
 import 'package:flutter/material.dart';
 
 import '../zombie_survival_game.dart';
@@ -18,12 +19,12 @@ class ZombieComponent extends CircleComponent with HasGameReference<ZombieSurviv
     required this.speed,
     required this.contactDamage,
     required this.category,
-  })  : currentHp = maxHp,
-        super(
-          radius: 12,
-          anchor: Anchor.center,
-          paint: Paint()..color = _colorForCategory(category),
-        );
+  }) : currentHp = maxHp,
+       super(
+         radius: 14,
+         anchor: Anchor.center,
+         paint: Paint()..color = _colorForCategory(category),
+       );
 
   final PlayerComponent player;
   final double speed;
@@ -35,6 +36,7 @@ class ZombieComponent extends CircleComponent with HasGameReference<ZombieSurviv
   double _touchDamageCooldown = 0;
   double _damageFlashTimer = 0;
   double _animTimer = 0;
+  late final SvgComponent _zombieVisual;
 
   static Color _colorForCategory(ZombieCategory category) {
     switch (category) {
@@ -51,6 +53,15 @@ class ZombieComponent extends CircleComponent with HasGameReference<ZombieSurviv
   Future<void> onLoad() async {
     await super.onLoad();
     add(CircleHitbox());
+
+    final zombieSvg = await Svg.load('assets/svg/zombie.svg');
+    _zombieVisual = SvgComponent(
+      svg: zombieSvg,
+      size: Vector2.all(38),
+      anchor: Anchor.center,
+      position: Vector2.zero(),
+    );
+    add(_zombieVisual);
   }
 
   @override
@@ -81,6 +92,7 @@ class ZombieComponent extends CircleComponent with HasGameReference<ZombieSurviv
     }
 
     _animTimer += dt;
+    _zombieVisual.scale = Vector2.all(1 + sin(_animTimer * 10) * 0.06);
 
     final toPlayer = player.position - position;
     if (toPlayer.length2 > 0.0001) {

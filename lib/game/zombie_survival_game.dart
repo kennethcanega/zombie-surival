@@ -6,6 +6,7 @@ import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 
 import 'components/bullet_component.dart';
+import 'components/explosion_component.dart';
 import 'components/loot_popup_component.dart';
 import 'components/player_component.dart';
 import 'components/zombie_component.dart';
@@ -70,7 +71,10 @@ class ZombieSurvivalGame extends FlameGame with TapCallbacks {
     final spawnInterval = (_baseSpawnInterval - (day - 1) * 0.08).clamp(0.35, 2.0);
     if (zombieSpawnTimer >= spawnInterval) {
       zombieSpawnTimer = 0;
-      _spawnZombie();
+      final spawnCount = (1 + (day - 1) ~/ 2).clamp(1, 8);
+      for (var i = 0; i < spawnCount; i++) {
+        _spawnZombie();
+      }
     }
 
     _cleanupDeadEntities();
@@ -94,8 +98,8 @@ class ZombieSurvivalGame extends FlameGame with TapCallbacks {
     final category = categoryRoll < 0.2
         ? ZombieCategory.fast
         : categoryRoll > 0.85
-            ? ZombieCategory.tough
-            : ZombieCategory.regular;
+        ? ZombieCategory.tough
+        : ZombieCategory.regular;
 
     final dayFactor = 1 + (day - 1) * 0.14;
 
@@ -123,6 +127,8 @@ class ZombieSurvivalGame extends FlameGame with TapCallbacks {
     money += _zombieMoneyReward;
     gainExp(_zombieExpReward);
     zombies.remove(zombie);
+
+    add(ExplosionComponent(position: zombie.position.clone()));
 
     if (zombie.category == ZombieCategory.tough && random.nextDouble() < 0.28) {
       player.collectArmorDrop(ArmorTier.kevlar);
