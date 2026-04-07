@@ -6,6 +6,7 @@ import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 
 import 'components/bullet_component.dart';
+import 'components/loot_popup_component.dart';
 import 'components/player_component.dart';
 import 'components/zombie_component.dart';
 import 'systems/day_system.dart';
@@ -38,6 +39,8 @@ class ZombieSurvivalGame extends FlameGame with TapCallbacks {
   List<Upgrade> currentUpgradeChoices = [];
 
   static const double _baseSpawnInterval = 1.6;
+  static const int _zombieMoneyReward = 12;
+  static const double _zombieExpReward = 8;
 
   @override
   Color backgroundColor() => const Color(0xFF1A1A1A);
@@ -85,12 +88,13 @@ class ZombieSurvivalGame extends FlameGame with TapCallbacks {
     final angle = random.nextDouble() * pi * 2;
     final spawnPosition = player.position + Vector2(cos(angle), sin(angle)) * spawnDistance;
 
+    final dayFactor = 1 + (day - 1) * 0.14;
     final zombie = ZombieComponent(
       position: spawnPosition,
       player: player,
-      maxHp: 20 + (day - 1) * 5,
-      speed: 55 + (day - 1) * 2,
-      contactDamage: 8 + (day - 1).toDouble(),
+      maxHp: 20 * dayFactor + (day - 1) * 6,
+      speed: 55 + (day - 1) * 3.2,
+      contactDamage: 8 + (day - 1) * 1.35,
     );
 
     zombies.add(zombie);
@@ -99,9 +103,16 @@ class ZombieSurvivalGame extends FlameGame with TapCallbacks {
 
   void onZombieKilled(ZombieComponent zombie) {
     kills += 1;
-    money += 12;
-    gainExp(8);
+    money += _zombieMoneyReward;
+    gainExp(_zombieExpReward);
     zombies.remove(zombie);
+    add(
+      LootPopupComponent(
+        position: zombie.position.clone(),
+        money: _zombieMoneyReward,
+        exp: _zombieExpReward,
+      ),
+    );
   }
 
   void addBullet(BulletComponent bullet) {
