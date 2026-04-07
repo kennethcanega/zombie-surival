@@ -34,8 +34,8 @@ class _HudOverlayState extends State<HudOverlay> {
   @override
   Widget build(BuildContext context) {
     final game = widget.game;
-    final hpPercent = (game.player.currentHp / game.player.maxHp).clamp(0, 1);
-    final expPercent = (game.exp / game.expToNextLevel).clamp(0, 1);
+    final hpPercent = (game.player.currentHp / game.player.maxHp).clamp(0, 1).toDouble();
+    final expPercent = (game.exp / game.expToNextLevel).clamp(0, 1).toDouble();
 
     return Align(
       alignment: Alignment.topLeft,
