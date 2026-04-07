@@ -61,6 +61,7 @@ class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurviv
       size: Vector2.all(40),
       anchor: Anchor.center,
       position: Vector2.zero(),
+      priority: 2,
     );
     add(_bodyVisual);
 
@@ -70,6 +71,7 @@ class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurviv
       size: Vector2(30, 22),
       anchor: Anchor.centerLeft,
       position: Vector2(10, 0),
+      priority: 3,
     );
     add(_weaponVisual);
   }
@@ -88,8 +90,9 @@ class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurviv
     final walkBob = sin(_animTimer * 8) * 1.8;
     _bodyVisual.position.y = walkBob;
 
-    final aimAngle = _aimDirection.length2 > 0.001 ? _aimDirection.screenAngle() : 0.0;
-    _weaponVisual.angle = aimAngle;
+    final facingDirection = _currentFacingDirection();
+    _weaponVisual.angle = facingDirection.screenAngle();
+    _weaponVisual.position = facingDirection * 10;
     _weaponVisual.scale = Vector2.all(1 + currentWeapon.damageMultiplier * 0.08);
 
     _attackTimer += dt;
@@ -190,12 +193,28 @@ class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurviv
     Svg.load('svg/armor.svg').then((svg) {
       _armorVisual = SvgComponent(
         svg: svg,
-        size: Vector2.all(42),
+        size: Vector2.all(34),
         anchor: Anchor.center,
         position: Vector2.zero(),
+        priority: 1,
       );
+      _armorVisual!.opacity = 0.55;
       add(_armorVisual!);
     });
+  }
+
+  Vector2 _currentFacingDirection() {
+    if (_aimDirection.length2 > 0.001) {
+      return _aimDirection.normalized();
+    }
+    final nearestZombie = _attackSystem.findNearestZombie(player: this, zombies: game.zombies);
+    if (nearestZombie != null) {
+      final toZombie = nearestZombie.position - position;
+      if (toZombie.length2 > 0.0001) {
+        return toZombie.normalized();
+      }
+    }
+    return Vector2(1, 0);
   }
 
   void takeDamage(double amount) {
