@@ -62,6 +62,8 @@ class ZombieSurvivalGame extends FlameGame with TapCallbacks {
   void update(double dt) {
     super.update(dt);
 
+    camera.viewfinder.position = player.position.clone();
+
     if (isGameOver || isPausedForLevelUp) return;
 
     daySystem.update(dt);
