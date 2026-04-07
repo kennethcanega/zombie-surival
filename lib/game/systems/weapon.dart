@@ -26,7 +26,7 @@ class WeaponSpec {
   bool get isAoe => splashRadius > 0;
 }
 
-const List<WeaponSpec> weaponProgression = [
+const List<WeaponSpec> weaponCatalog = [
   WeaponSpec(
     tier: WeaponTier.pistol,
     name: 'Pistol',

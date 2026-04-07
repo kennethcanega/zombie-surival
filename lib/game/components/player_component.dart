@@ -2,20 +2,20 @@ import 'dart:math';
 
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
+import 'package:flame_svg/flame_svg.dart';
 import 'package:flutter/material.dart';
 
+import '../systems/armor.dart';
 import '../systems/attack_system.dart';
 import '../systems/weapon.dart';
 import '../zombie_survival_game.dart';
 
 class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurvivalGame> {
-  static const Color _baseColor = Color(0xFF42A5F5);
-
   PlayerComponent({required super.position})
       : super(
-          radius: 14,
+          radius: 16,
           anchor: Anchor.center,
-          paint: Paint()..color = _baseColor,
+          paint: Paint()..color = Colors.transparent,
         );
 
   double moveSpeed = 170;
@@ -25,20 +25,55 @@ class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurviv
 
   final AttackSystem _attackSystem = const AttackSystem();
 
+  late final SvgComponent _bodyVisual;
+  late final SvgComponent _weaponVisual;
+  SvgComponent? _armorVisual;
+
   Vector2 _moveDirection = Vector2.zero();
   Vector2 _aimDirection = Vector2.zero();
   double _attackTimer = 0;
   double _damageFlashTimer = 0;
-  int _weaponIndex = 0;
   double _fireRateMultiplier = 1;
+  double _animTimer = 0;
 
-  WeaponSpec get currentWeapon => weaponProgression[_weaponIndex];
-  int get weaponIndex => _weaponIndex;
+  final Set<WeaponTier> _ownedWeapons = {WeaponTier.pistol};
+  WeaponTier _equippedWeapon = WeaponTier.pistol;
+
+  final Set<ArmorTier> _ownedArmors = {};
+  ArmorTier? _equippedArmor;
+
+  WeaponSpec get currentWeapon => weaponCatalog.firstWhere((w) => w.tier == _equippedWeapon);
+  ArmorSpec? get equippedArmor =>
+      _equippedArmor == null ? null : armorCatalog.firstWhere((a) => a.tier == _equippedArmor);
+  List<WeaponSpec> get ownedWeapons =>
+      weaponCatalog.where((w) => _ownedWeapons.contains(w.tier)).toList(growable: false);
+  List<ArmorSpec> get ownedArmors =>
+      armorCatalog.where((a) => _ownedArmors.contains(a.tier)).toList(growable: false);
 
   @override
   Future<void> onLoad() async {
     await super.onLoad();
     add(CircleHitbox());
+
+    final playerSvg = await Svg.load('svg/player.svg');
+    _bodyVisual = SvgComponent(
+      svg: playerSvg,
+      size: Vector2.all(40),
+      anchor: Anchor.center,
+      position: Vector2.zero(),
+      priority: 2,
+    );
+    add(_bodyVisual);
+
+    final weaponSvg = await Svg.load('svg/weapon.svg');
+    _weaponVisual = SvgComponent(
+      svg: weaponSvg,
+      size: Vector2(30, 22),
+      anchor: Anchor.centerLeft,
+      position: Vector2(10, 0),
+      priority: 3,
+    );
+    add(_weaponVisual);
   }
 
   @override
@@ -47,8 +82,18 @@ class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurviv
 
     if (game.isGameOver || game.isPausedForLevelUp) return;
 
+    _animTimer += dt;
+
     position += _moveDirection * moveSpeed * dt;
     _clampToWorldBounds();
+
+    final walkBob = sin(_animTimer * 8) * 1.8;
+    _bodyVisual.position.y = walkBob;
+
+    final facingDirection = _currentFacingDirection();
+    _weaponVisual.angle = facingDirection.screenAngle();
+    _weaponVisual.position = facingDirection * 10;
+    _weaponVisual.scale = Vector2.all(1 + currentWeapon.damageMultiplier * 0.08);
 
     _attackTimer += dt;
     if (_attackTimer >= currentWeapon.cooldown / _fireRateMultiplier) {
@@ -59,7 +104,7 @@ class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurviv
     if (_damageFlashTimer > 0) {
       _damageFlashTimer -= dt;
       if (_damageFlashTimer <= 0) {
-        paint.color = _baseColor;
+        opacity = 1;
       }
     }
   }
@@ -94,27 +139,90 @@ class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurviv
     game.addBullet(bullet);
   }
 
-  bool canUpgradeWeapon() => _weaponIndex < weaponProgression.length - 1;
+  bool isWeaponOwned(WeaponTier tier) => _ownedWeapons.contains(tier);
 
-  int nextWeaponCost() {
-    if (!canUpgradeWeapon()) return 0;
-    return weaponProgression[_weaponIndex + 1].cost;
+  bool buyWeapon(WeaponTier tier, int money) {
+    final spec = weaponCatalog.firstWhere((w) => w.tier == tier);
+    if (_ownedWeapons.contains(tier) || money < spec.cost) {
+      return false;
+    }
+    _ownedWeapons.add(tier);
+    return true;
+  }
+
+  bool equipWeapon(WeaponTier tier) {
+    if (!_ownedWeapons.contains(tier)) return false;
+    _equippedWeapon = tier;
+    return true;
   }
 
   void improveFireRate() {
     _fireRateMultiplier = (_fireRateMultiplier * 1.12).clamp(1, 2.5);
   }
 
-  bool tryUpgradeWeapon() {
-    if (!canUpgradeWeapon()) return false;
-    _weaponIndex += 1;
+  bool isArmorOwned(ArmorTier tier) => _ownedArmors.contains(tier);
+
+  bool buyArmor(ArmorTier tier, int money) {
+    final spec = armorCatalog.firstWhere((a) => a.tier == tier);
+    if (_ownedArmors.contains(tier) || money < spec.cost) {
+      return false;
+    }
+    _ownedArmors.add(tier);
     return true;
   }
 
+  bool equipArmor(ArmorTier tier) {
+    if (!_ownedArmors.contains(tier)) return false;
+    _equippedArmor = tier;
+    _recalculateStats();
+    _updateArmorVisual();
+    return true;
+  }
+
+  bool collectArmorDrop(ArmorTier tier) {
+    final added = _ownedArmors.add(tier);
+    _equippedArmor ??= tier;
+    _recalculateStats();
+    _updateArmorVisual();
+    return added;
+  }
+
+  void _updateArmorVisual() {
+    _armorVisual?.removeFromParent();
+    if (_equippedArmor == null) return;
+    Svg.load('svg/armor.svg').then((svg) {
+      _armorVisual = SvgComponent(
+        svg: svg,
+        size: Vector2.all(34),
+        anchor: Anchor.center,
+        position: Vector2.zero(),
+        priority: 1,
+      );
+      _armorVisual!.opacity = 0.55;
+      add(_armorVisual!);
+    });
+  }
+
+  Vector2 _currentFacingDirection() {
+    if (_aimDirection.length2 > 0.001) {
+      return _aimDirection.normalized();
+    }
+    final nearestZombie = _attackSystem.findNearestZombie(player: this, zombies: game.zombies);
+    if (nearestZombie != null) {
+      final toZombie = nearestZombie.position - position;
+      if (toZombie.length2 > 0.0001) {
+        return toZombie.normalized();
+      }
+    }
+    return Vector2(1, 0);
+  }
+
   void takeDamage(double amount) {
-    currentHp = max(0, currentHp - amount);
-    paint.color = const Color(0xFFE53935);
-    _damageFlashTimer = 0.5;
+    final reduction = equippedArmor?.damageReduction ?? 0;
+    final reducedDamage = amount * (1 - reduction);
+    currentHp = max(0, currentHp - reducedDamage);
+    opacity = 0.5;
+    _damageFlashTimer = 0.3;
   }
 
   void resetStats() {
@@ -126,9 +234,23 @@ class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurviv
     _aimDirection = Vector2.zero();
     _attackTimer = 0;
     _damageFlashTimer = 0;
-    _weaponIndex = 0;
     _fireRateMultiplier = 1;
-    paint.color = _baseColor;
+    _animTimer = 0;
+    _ownedWeapons
+      ..clear()
+      ..add(WeaponTier.pistol);
+    _equippedWeapon = WeaponTier.pistol;
+    _ownedArmors.clear();
+    _equippedArmor = null;
+    _armorVisual?.removeFromParent();
+    opacity = 1;
+  }
+
+  void _recalculateStats() {
+    final armor = equippedArmor;
+    final hpRatio = maxHp <= 0 ? 1 : currentHp / maxHp;
+    maxHp = 100 + (armor?.hpBonus ?? 0);
+    currentHp = (maxHp * hpRatio).clamp(0, maxHp);
   }
 
   void _clampToWorldBounds() {

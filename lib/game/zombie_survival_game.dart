@@ -6,11 +6,14 @@ import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 
 import 'components/bullet_component.dart';
+import 'components/explosion_component.dart';
 import 'components/loot_popup_component.dart';
 import 'components/player_component.dart';
 import 'components/zombie_component.dart';
+import 'systems/armor.dart';
 import 'systems/day_system.dart';
 import 'systems/upgrade.dart';
+import 'systems/weapon.dart';
 import 'ui/game_over_overlay.dart';
 import 'ui/hud_overlay.dart';
 import 'ui/level_up_overlay.dart';
@@ -68,7 +71,10 @@ class ZombieSurvivalGame extends FlameGame with TapCallbacks {
     final spawnInterval = (_baseSpawnInterval - (day - 1) * 0.08).clamp(0.35, 2.0);
     if (zombieSpawnTimer >= spawnInterval) {
       zombieSpawnTimer = 0;
-      _spawnZombie();
+      final spawnCount = (1 + (day - 1) ~/ 2).clamp(1, 8);
+      for (var i = 0; i < spawnCount; i++) {
+        _spawnZombie();
+      }
     }
 
     _cleanupDeadEntities();
@@ -88,13 +94,28 @@ class ZombieSurvivalGame extends FlameGame with TapCallbacks {
     final angle = random.nextDouble() * pi * 2;
     final spawnPosition = player.position + Vector2(cos(angle), sin(angle)) * spawnDistance;
 
+    final categoryRoll = random.nextDouble();
+    final category = categoryRoll < 0.2
+        ? ZombieCategory.fast
+        : categoryRoll > 0.85
+        ? ZombieCategory.tough
+        : ZombieCategory.regular;
+
     final dayFactor = 1 + (day - 1) * 0.14;
+
+    final (hpMultiplier, speedMultiplier, damageMultiplier) = switch (category) {
+      ZombieCategory.fast => (0.75, 1.45, 0.9),
+      ZombieCategory.regular => (1.0, 1.0, 1.0),
+      ZombieCategory.tough => (1.9, 0.72, 1.45),
+    };
+
     final zombie = ZombieComponent(
       position: spawnPosition,
       player: player,
-      maxHp: 20 * dayFactor + (day - 1) * 6,
-      speed: 55 + (day - 1) * 3.2,
-      contactDamage: 8 + (day - 1) * 1.35,
+      category: category,
+      maxHp: (20 * dayFactor + (day - 1) * 6) * hpMultiplier,
+      speed: (55 + (day - 1) * 3.2) * speedMultiplier,
+      contactDamage: (8 + (day - 1) * 1.35) * damageMultiplier,
     );
 
     zombies.add(zombie);
@@ -106,6 +127,15 @@ class ZombieSurvivalGame extends FlameGame with TapCallbacks {
     money += _zombieMoneyReward;
     gainExp(_zombieExpReward);
     zombies.remove(zombie);
+
+    add(ExplosionComponent(position: zombie.position.clone()));
+
+    if (zombie.category == ZombieCategory.tough && random.nextDouble() < 0.28) {
+      player.collectArmorDrop(ArmorTier.kevlar);
+    } else if (zombie.category == ZombieCategory.regular && random.nextDouble() < 0.12) {
+      player.collectArmorDrop(ArmorTier.cloth);
+    }
+
     add(
       LootPopupComponent(
         position: zombie.position.clone(),
@@ -128,17 +158,30 @@ class ZombieSurvivalGame extends FlameGame with TapCallbacks {
     player.setAimDirection(direction);
   }
 
-  bool buyNextWeapon() {
-    final cost = player.nextWeaponCost();
-    if (cost <= 0 || money < cost) {
-      return false;
-    }
+  bool buyWeapon(WeaponTier tier) {
+    final spec = weaponCatalog.firstWhere((w) => w.tier == tier);
+    if (money < spec.cost || player.isWeaponOwned(tier)) return false;
+    if (!player.buyWeapon(tier, money)) return false;
+    money -= spec.cost;
+    return true;
+  }
 
-    final didUpgrade = player.tryUpgradeWeapon();
-    if (didUpgrade) {
-      money -= cost;
-    }
-    return didUpgrade;
+  bool equipWeapon(WeaponTier tier) => player.equipWeapon(tier);
+
+  bool buyArmor(ArmorTier tier) {
+    final spec = armorCatalog.firstWhere((a) => a.tier == tier);
+    if (money < spec.cost || player.isArmorOwned(tier)) return false;
+    if (!player.buyArmor(tier, money)) return false;
+    money -= spec.cost;
+    return true;
+  }
+
+  bool equipArmor(ArmorTier tier) => player.equipArmor(tier);
+
+  String get playerStatus {
+    if (player.currentHp <= player.maxHp * 0.25) return 'Critical';
+    if (player.currentHp <= player.maxHp * 0.55) return 'In Danger';
+    return 'Combat Ready';
   }
 
   void gainExp(double amount) {

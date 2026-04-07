@@ -35,12 +35,14 @@ class _ControlsOverlayState extends State<ControlsOverlay> {
               _Joystick(
                 label: 'MOVE',
                 onDirection: widget.game.setMoveDirection,
+                color: const Color(0x223FA7F5),
+                knobColor: const Color(0x6642A5F5),
               ),
               _Joystick(
                 label: 'AIM',
                 onDirection: widget.game.setAimDirection,
-                color: const Color(0x44FF7043),
-                knobColor: const Color(0xFFFF7043),
+                color: const Color(0x22FF7043),
+                knobColor: const Color(0x66FF7043),
               ),
             ],
           ),
@@ -54,8 +56,8 @@ class _Joystick extends StatefulWidget {
   const _Joystick({
     required this.label,
     required this.onDirection,
-    this.color = const Color(0x443FA7F5),
-    this.knobColor = const Color(0xFF42A5F5),
+    this.color = const Color(0x223FA7F5),
+    this.knobColor = const Color(0x6642A5F5),
   });
 
   final String label;
@@ -103,7 +105,7 @@ class _JoystickState extends State<_Joystick> {
               bottom: 8,
               child: Text(
                 widget.label,
-                style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold),
+                style: const TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold),
               ),
             ),
           ],
