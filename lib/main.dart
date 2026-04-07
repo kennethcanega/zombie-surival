@@ -2,6 +2,7 @@ import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 
 import 'game/zombie_survival_game.dart';
+import 'game/ui/controls_overlay.dart';
 import 'game/ui/game_over_overlay.dart';
 import 'game/ui/hud_overlay.dart';
 import 'game/ui/level_up_overlay.dart';
@@ -28,9 +29,10 @@ class GameApp extends StatelessWidget {
           overlayBuilderMap: {
             HudOverlay.id: (context, game) => HudOverlay(game: game),
             LevelUpOverlay.id: (context, game) => LevelUpOverlay(game: game),
+            ControlsOverlay.id: (context, game) => ControlsOverlay(game: game),
             GameOverOverlay.id: (context, game) => GameOverOverlay(game: game),
           },
-          initialActiveOverlays: const [HudOverlay.id],
+          initialActiveOverlays: const [HudOverlay.id, ControlsOverlay.id],
         ),
       ),
     );

@@ -5,6 +5,7 @@ import 'package:flame/events.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 
+import 'components/bullet_component.dart';
 import 'components/player_component.dart';
 import 'components/zombie_component.dart';
 import 'systems/day_system.dart';
@@ -19,10 +20,12 @@ class ZombieSurvivalGame extends FlameGame with TapCallbacks {
   final Random random;
   late final PlayerComponent player;
   final List<ZombieComponent> zombies = [];
+  final List<BulletComponent> bullets = [];
 
   int day = 1;
   int level = 1;
   int kills = 0;
+  int money = 0;
 
   double exp = 0;
   double expToNextLevel = 20;
@@ -65,7 +68,7 @@ class ZombieSurvivalGame extends FlameGame with TapCallbacks {
       _spawnZombie();
     }
 
-    _cleanupDeadZombies();
+    _cleanupDeadEntities();
 
     if (player.currentHp <= 0 && !isGameOver) {
       gameOver();
@@ -96,8 +99,35 @@ class ZombieSurvivalGame extends FlameGame with TapCallbacks {
 
   void onZombieKilled(ZombieComponent zombie) {
     kills += 1;
+    money += 12;
     gainExp(8);
     zombies.remove(zombie);
+  }
+
+  void addBullet(BulletComponent bullet) {
+    bullets.add(bullet);
+    add(bullet);
+  }
+
+  void setMoveDirection(Vector2 direction) {
+    player.setMoveDirection(direction);
+  }
+
+  void setAimDirection(Vector2 direction) {
+    player.setAimDirection(direction);
+  }
+
+  bool buyNextWeapon() {
+    final cost = player.nextWeaponCost();
+    if (cost <= 0 || money < cost) {
+      return false;
+    }
+
+    final didUpgrade = player.tryUpgradeWeapon();
+    if (didUpgrade) {
+      money -= cost;
+    }
+    return didUpgrade;
   }
 
   void gainExp(double amount) {
@@ -128,7 +158,7 @@ class ZombieSurvivalGame extends FlameGame with TapCallbacks {
       case UpgradeType.moveSpeed:
         player.moveSpeed += 25;
       case UpgradeType.attackSpeed:
-        player.attackCooldown = (player.attackCooldown * 0.85).clamp(0.2, 2.0);
+        player.improveFireRate();
     }
 
     overlays.remove(LevelUpOverlay.id);
@@ -148,6 +178,7 @@ class ZombieSurvivalGame extends FlameGame with TapCallbacks {
     day = 1;
     level = 1;
     kills = 0;
+    money = 0;
     exp = 0;
     expToNextLevel = 20;
 
@@ -159,6 +190,11 @@ class ZombieSurvivalGame extends FlameGame with TapCallbacks {
     }
     zombies.clear();
 
+    for (final bullet in bullets) {
+      bullet.removeFromParent();
+    }
+    bullets.clear();
+
     player.resetStats();
     player.position = size / 2;
 
@@ -169,7 +205,8 @@ class ZombieSurvivalGame extends FlameGame with TapCallbacks {
     resumeEngine();
   }
 
-  void _cleanupDeadZombies() {
+  void _cleanupDeadEntities() {
     zombies.removeWhere((zombie) => zombie.isRemoving || zombie.currentHp <= 0);
+    bullets.removeWhere((bullet) => bullet.isRemoving);
   }
 }
