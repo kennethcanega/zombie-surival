@@ -2,7 +2,8 @@ import 'dart:math';
 
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
-import 'package:flame_svg/flame_svg.dart';
+import 'package:flutter/material.dart';
+
 import '../systems/armor.dart';
 import '../systems/attack_system.dart';
 import '../systems/weapon.dart';
@@ -20,9 +21,9 @@ class PlayerComponent extends PositionComponent with HasGameReference<ZombieSurv
 
   final AttackSystem _attackSystem = const AttackSystem();
 
-  late final SvgComponent _bodyVisual;
-  late final SvgComponent _weaponVisual;
-  SvgComponent? _armorVisual;
+  late final PolygonComponent _bodyVisual;
+  late final RectangleComponent _weaponVisual;
+  RectangleComponent? _armorVisual;
 
   Vector2 _moveDirection = Vector2.zero();
   Vector2 _aimDirection = Vector2.zero();
@@ -55,22 +56,43 @@ class PlayerComponent extends PositionComponent with HasGameReference<ZombieSurv
     await super.onLoad();
     add(CircleHitbox(radius: collisionRadius));
 
-    final playerSvg = await Svg.load('svg/player.svg');
-    _bodyVisual = SvgComponent(
-      svg: playerSvg,
-      size: Vector2.all(42),
+    _bodyVisual = PolygonComponent(
+      [
+        Vector2(0, -21),
+        Vector2(16, -10),
+        Vector2(16, 10),
+        Vector2(0, 21),
+        Vector2(-16, 10),
+        Vector2(-16, -10),
+      ],
+      paint: Paint()..color = const Color(0xFF42A5F5),
       anchor: Anchor.center,
-      position: Vector2.zero(),
       priority: 2,
     );
     add(_bodyVisual);
 
-    final weaponSvg = await Svg.load('svg/weapon.svg');
-    _weaponVisual = SvgComponent(
-      svg: weaponSvg,
-      size: Vector2(30, 22),
+    addAll([
+      RectangleComponent(
+        size: Vector2.all(4),
+        position: Vector2(-5, -3),
+        anchor: Anchor.center,
+        paint: Paint()..color = Colors.white,
+        priority: 3,
+      ),
+      RectangleComponent(
+        size: Vector2.all(4),
+        position: Vector2(5, -3),
+        anchor: Anchor.center,
+        paint: Paint()..color = Colors.white,
+        priority: 3,
+      ),
+    ]);
+
+    _weaponVisual = RectangleComponent(
+      size: Vector2(18, 4),
       anchor: Anchor.centerLeft,
       position: Vector2(10, 0),
+      paint: Paint()..color = const Color(0xFFFFB74D),
       priority: 3,
     );
     add(_weaponVisual);
@@ -93,7 +115,7 @@ class PlayerComponent extends PositionComponent with HasGameReference<ZombieSurv
     final facingDirection = _currentFacingDirection();
     _weaponVisual.angle = facingDirection.screenAngle();
     _weaponVisual.position = facingDirection * 10;
-    _weaponVisual.scale = Vector2.all(1 + currentWeapon.damageMultiplier * 0.08);
+    _weaponVisual.scale = Vector2(1 + currentWeapon.damageMultiplier * 0.08, 1);
 
     _attackTimer += dt;
     if (_attackTimer >= currentWeapon.cooldown / _fireRateMultiplier) {
@@ -104,7 +126,7 @@ class PlayerComponent extends PositionComponent with HasGameReference<ZombieSurv
     if (_damageFlashTimer > 0) {
       _damageFlashTimer -= dt;
       if (_damageFlashTimer <= 0) {
-        _bodyVisual.opacity = 1;
+        _bodyVisual.paint.color = const Color(0xFF42A5F5);
       }
     }
   }
@@ -194,17 +216,14 @@ class PlayerComponent extends PositionComponent with HasGameReference<ZombieSurv
   void _updateArmorVisual() {
     _armorVisual?.removeFromParent();
     if (_equippedArmor == null) return;
-    Svg.load('svg/armor.svg').then((svg) {
-      _armorVisual = SvgComponent(
-        svg: svg,
-        size: Vector2.all(34),
-        anchor: Anchor.center,
-        position: Vector2.zero(),
-        priority: 1,
-      );
-      _armorVisual!.opacity = 0.55;
-      add(_armorVisual!);
-    });
+    _armorVisual = RectangleComponent(
+      size: Vector2(24, 16),
+      anchor: Anchor.center,
+      position: Vector2.zero(),
+      paint: Paint()..color = const Color(0x8855C0FF),
+      priority: 1,
+    );
+    add(_armorVisual!);
   }
 
   Vector2 _currentFacingDirection() {
@@ -225,7 +244,7 @@ class PlayerComponent extends PositionComponent with HasGameReference<ZombieSurv
     final reduction = equippedArmor?.damageReduction ?? 0;
     final reducedDamage = amount * (1 - reduction);
     currentHp = max(0, currentHp - reducedDamage);
-    _bodyVisual.opacity = 0.5;
+    _bodyVisual.paint.color = const Color(0xFFEF5350);
     _damageFlashTimer = 0.3;
   }
 
@@ -247,7 +266,7 @@ class PlayerComponent extends PositionComponent with HasGameReference<ZombieSurv
     _ownedArmors.clear();
     _equippedArmor = null;
     _armorVisual?.removeFromParent();
-    _bodyVisual.opacity = 1;
+    _bodyVisual.paint.color = const Color(0xFF42A5F5);
   }
 
   void _recalculateStats() {

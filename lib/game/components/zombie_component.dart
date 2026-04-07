@@ -3,7 +3,6 @@ import 'dart:ui';
 
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
-import 'package:flame_svg/flame_svg.dart';
 
 import '../zombie_survival_game.dart';
 import 'blood_splatter_component.dart';
@@ -34,7 +33,7 @@ class ZombieComponent extends PositionComponent with HasGameReference<ZombieSurv
   double _touchDamageCooldown = 0;
   double _damageFlashTimer = 0;
   double _animTimer = 0;
-  late final SvgComponent _zombieVisual;
+  late final PolygonComponent _zombieVisual;
 
   double get radius => collisionRadius;
 
@@ -43,12 +42,17 @@ class ZombieComponent extends PositionComponent with HasGameReference<ZombieSurv
     await super.onLoad();
     add(CircleHitbox(radius: collisionRadius));
 
-    final zombieSvg = await Svg.load('svg/zombie.svg');
-    _zombieVisual = SvgComponent(
-      svg: zombieSvg,
-      size: Vector2.all(40),
+    _zombieVisual = PolygonComponent(
+      [
+        Vector2(0, -20),
+        Vector2(16, -10),
+        Vector2(18, 4),
+        Vector2(0, 20),
+        Vector2(-18, 4),
+        Vector2(-16, -10),
+      ],
+      paint: Paint()..color = const Color(0xFF66BB6A),
       anchor: Anchor.center,
-      position: Vector2.zero(),
     );
     add(_zombieVisual);
   }
@@ -94,13 +98,13 @@ class ZombieComponent extends PositionComponent with HasGameReference<ZombieSurv
     if (_damageFlashTimer > 0) {
       _damageFlashTimer -= dt;
       if (_damageFlashTimer <= 0) {
-        _zombieVisual.opacity = 1;
+        _zombieVisual.paint.color = const Color(0xFF66BB6A);
       }
     }
   }
 
   void takeDamage(double amount) {
-    _zombieVisual.opacity = 0.65;
+    _zombieVisual.paint.color = const Color(0xFFB71C1C);
     _damageFlashTimer = 0.2;
     currentHp -= amount;
     game.add(BloodSplatterComponent(position: position.clone(), intensity: 4));
