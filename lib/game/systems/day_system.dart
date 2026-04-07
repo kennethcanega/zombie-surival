@@ -1,5 +1,7 @@
 class DaySystem {
-  double timeLeft = 30;
+  // Make days 2 minutes longer than the original 30s baseline.
+  static const double _baseDaySeconds = 150;
+  double timeLeft = _baseDaySeconds;
   bool didCompleteDay = false;
 
   void update(double dt) {
@@ -10,12 +12,11 @@ class DaySystem {
   }
 
   void startNewDay(int day) {
-    // Keep each day short enough for MVP pacing.
-    timeLeft = 30 + (day - 1) * 4;
+    timeLeft = _baseDaySeconds + (day - 1) * 8;
   }
 
   void reset() {
-    timeLeft = 30;
+    timeLeft = _baseDaySeconds;
     didCompleteDay = false;
   }
 }

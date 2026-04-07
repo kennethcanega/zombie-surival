@@ -1,4 +1,4 @@
-enum WeaponTier { pistol, smg, shotgun, launcher }
+enum WeaponTier { pistol, smg, shotgun, launcher, bazooka, cannon }
 
 class WeaponSpec {
   const WeaponSpec({
@@ -70,5 +70,27 @@ const List<WeaponSpec> weaponProgression = [
     bulletRadius: 6,
     splashRadius: 70,
     pierce: 2,
+  ),
+  WeaponSpec(
+    tier: WeaponTier.bazooka,
+    name: 'Bazooka',
+    cost: 460,
+    damageMultiplier: 3.2,
+    cooldown: 1.25,
+    bulletSpeed: 330,
+    bulletRadius: 7,
+    splashRadius: 110,
+    pierce: 3,
+  ),
+  WeaponSpec(
+    tier: WeaponTier.cannon,
+    name: 'Cannon',
+    cost: 650,
+    damageMultiplier: 4.3,
+    cooldown: 1.5,
+    bulletSpeed: 310,
+    bulletRadius: 8,
+    splashRadius: 145,
+    pierce: 4,
   ),
 ];

@@ -9,11 +9,13 @@ import '../systems/weapon.dart';
 import '../zombie_survival_game.dart';
 
 class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurvivalGame> {
+  static const Color _baseColor = Color(0xFF42A5F5);
+
   PlayerComponent({required super.position})
       : super(
           radius: 14,
           anchor: Anchor.center,
-          paint: Paint()..color = const Color(0xFF42A5F5),
+          paint: Paint()..color = _baseColor,
         );
 
   double moveSpeed = 170;
@@ -26,6 +28,7 @@ class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurviv
   Vector2 _moveDirection = Vector2.zero();
   Vector2 _aimDirection = Vector2.zero();
   double _attackTimer = 0;
+  double _damageFlashTimer = 0;
   int _weaponIndex = 0;
   double _fireRateMultiplier = 1;
 
@@ -51,6 +54,13 @@ class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurviv
     if (_attackTimer >= currentWeapon.cooldown / _fireRateMultiplier) {
       _attackTimer = 0;
       _shoot();
+    }
+
+    if (_damageFlashTimer > 0) {
+      _damageFlashTimer -= dt;
+      if (_damageFlashTimer <= 0) {
+        paint.color = _baseColor;
+      }
     }
   }
 
@@ -103,6 +113,8 @@ class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurviv
 
   void takeDamage(double amount) {
     currentHp = max(0, currentHp - amount);
+    paint.color = const Color(0xFFE53935);
+    _damageFlashTimer = 0.5;
   }
 
   void resetStats() {
@@ -113,8 +125,10 @@ class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurviv
     _moveDirection = Vector2.zero();
     _aimDirection = Vector2.zero();
     _attackTimer = 0;
+    _damageFlashTimer = 0;
     _weaponIndex = 0;
     _fireRateMultiplier = 1;
+    paint.color = _baseColor;
   }
 
   void _clampToWorldBounds() {

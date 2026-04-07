@@ -8,6 +8,8 @@ import '../zombie_survival_game.dart';
 import 'player_component.dart';
 
 class ZombieComponent extends CircleComponent with HasGameReference<ZombieSurvivalGame> {
+  static const Color _baseColor = Color(0xFF66BB6A);
+
   ZombieComponent({
     required super.position,
     required this.player,
@@ -18,7 +20,7 @@ class ZombieComponent extends CircleComponent with HasGameReference<ZombieSurviv
         super(
           radius: 12,
           anchor: Anchor.center,
-          paint: Paint()..color = const Color(0xFF66BB6A),
+          paint: Paint()..color = _baseColor,
         );
 
   final PlayerComponent player;
@@ -28,6 +30,7 @@ class ZombieComponent extends CircleComponent with HasGameReference<ZombieSurviv
 
   double currentHp;
   double _touchDamageCooldown = 0;
+  double _damageFlashTimer = 0;
 
   @override
   Future<void> onLoad() async {
@@ -68,9 +71,18 @@ class ZombieComponent extends CircleComponent with HasGameReference<ZombieSurviv
       player.takeDamage(contactDamage);
       _touchDamageCooldown = 0.5;
     }
+
+    if (_damageFlashTimer > 0) {
+      _damageFlashTimer -= dt;
+      if (_damageFlashTimer <= 0) {
+        paint.color = _baseColor;
+      }
+    }
   }
 
   void takeDamage(double amount) {
+    paint.color = const Color(0xFFE53935);
+    _damageFlashTimer = 0.5;
     currentHp -= amount;
     if (currentHp <= 0) {
       game.onZombieKilled(this);
