@@ -32,7 +32,7 @@ class ZombieSurvivalGame extends FlameGame with TapCallbacks {
   int money = 0;
 
   double exp = 0;
-  double expToNextLevel = 20;
+  double expToNextLevel = 80;
 
   bool isGameOver = false;
   bool isPausedForLevelUp = false;
@@ -51,13 +51,18 @@ class ZombieSurvivalGame extends FlameGame with TapCallbacks {
   @override
   Future<void> onLoad() async {
     await super.onLoad();
-    player = PlayerComponent(position: size / 2);
+    player = PlayerComponent(position: Vector2.zero());
     add(player);
+    camera.viewfinder.anchor = Anchor.center;
+    camera.follow(player);
+    camera.viewfinder.position = player.position.clone();
   }
 
   @override
   void update(double dt) {
     super.update(dt);
+
+    camera.viewfinder.position = player.position.clone();
 
     if (isGameOver || isPausedForLevelUp) return;
 
@@ -234,7 +239,7 @@ class ZombieSurvivalGame extends FlameGame with TapCallbacks {
     kills = 0;
     money = 0;
     exp = 0;
-    expToNextLevel = 20;
+    expToNextLevel = 80;
 
     daySystem.reset();
     zombieSpawnTimer = 0;
@@ -250,7 +255,7 @@ class ZombieSurvivalGame extends FlameGame with TapCallbacks {
     bullets.clear();
 
     player.resetStats();
-    player.position = size / 2;
+    player.position = Vector2.zero();
 
     overlays.remove(GameOverOverlay.id);
     overlays.remove(LevelUpOverlay.id);

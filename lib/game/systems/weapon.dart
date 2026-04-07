@@ -68,7 +68,7 @@ const List<WeaponSpec> weaponCatalog = [
     cooldown: 1,
     bulletSpeed: 360,
     bulletRadius: 6,
-    splashRadius: 70,
+    splashRadius: 140,
     pierce: 2,
   ),
   WeaponSpec(
@@ -79,7 +79,7 @@ const List<WeaponSpec> weaponCatalog = [
     cooldown: 1.25,
     bulletSpeed: 330,
     bulletRadius: 7,
-    splashRadius: 110,
+    splashRadius: 220,
     pierce: 3,
   ),
   WeaponSpec(

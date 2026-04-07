@@ -2,7 +2,6 @@ import 'dart:math';
 
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
-import 'package:flame_svg/flame_svg.dart';
 import 'package:flutter/material.dart';
 
 import '../systems/armor.dart';
@@ -10,13 +9,10 @@ import '../systems/attack_system.dart';
 import '../systems/weapon.dart';
 import '../zombie_survival_game.dart';
 
-class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurvivalGame> {
-  PlayerComponent({required super.position})
-      : super(
-          radius: 16,
-          anchor: Anchor.center,
-          paint: Paint()..color = Colors.transparent,
-        );
+class PlayerComponent extends PositionComponent with HasGameReference<ZombieSurvivalGame> {
+  PlayerComponent({required super.position}) : super(anchor: Anchor.center, size: Vector2.all(34));
+
+  static const double collisionRadius = 16;
 
   double moveSpeed = 170;
   double maxHp = 100;
@@ -25,9 +21,9 @@ class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurviv
 
   final AttackSystem _attackSystem = const AttackSystem();
 
-  late final SvgComponent _bodyVisual;
-  late final SvgComponent _weaponVisual;
-  SvgComponent? _armorVisual;
+  late final PolygonComponent _bodyVisual;
+  late final RectangleComponent _weaponVisual;
+  RectangleComponent? _armorVisual;
 
   Vector2 _moveDirection = Vector2.zero();
   Vector2 _aimDirection = Vector2.zero();
@@ -42,6 +38,11 @@ class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurviv
   final Set<ArmorTier> _ownedArmors = {};
   ArmorTier? _equippedArmor;
 
+  double get radius => collisionRadius;
+  double get agility => moveSpeed;
+  double get vitality => maxHp;
+  double get frenzy => _fireRateMultiplier;
+
   WeaponSpec get currentWeapon => weaponCatalog.firstWhere((w) => w.tier == _equippedWeapon);
   ArmorSpec? get equippedArmor =>
       _equippedArmor == null ? null : armorCatalog.firstWhere((a) => a.tier == _equippedArmor);
@@ -53,24 +54,45 @@ class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurviv
   @override
   Future<void> onLoad() async {
     await super.onLoad();
-    add(CircleHitbox());
+    add(CircleHitbox(radius: collisionRadius));
 
-    final playerSvg = await Svg.load('svg/player.svg');
-    _bodyVisual = SvgComponent(
-      svg: playerSvg,
-      size: Vector2.all(40),
+    _bodyVisual = PolygonComponent(
+      [
+        Vector2(0, -21),
+        Vector2(16, -10),
+        Vector2(16, 10),
+        Vector2(0, 21),
+        Vector2(-16, 10),
+        Vector2(-16, -10),
+      ],
+      paint: Paint()..color = const Color(0xFF42A5F5),
       anchor: Anchor.center,
-      position: Vector2.zero(),
       priority: 2,
     );
     add(_bodyVisual);
 
-    final weaponSvg = await Svg.load('svg/weapon.svg');
-    _weaponVisual = SvgComponent(
-      svg: weaponSvg,
-      size: Vector2(30, 22),
+    addAll([
+      RectangleComponent(
+        size: Vector2.all(4),
+        position: Vector2(-5, -3),
+        anchor: Anchor.center,
+        paint: Paint()..color = Colors.white,
+        priority: 3,
+      ),
+      RectangleComponent(
+        size: Vector2.all(4),
+        position: Vector2(5, -3),
+        anchor: Anchor.center,
+        paint: Paint()..color = Colors.white,
+        priority: 3,
+      ),
+    ]);
+
+    _weaponVisual = RectangleComponent(
+      size: Vector2(18, 4),
       anchor: Anchor.centerLeft,
       position: Vector2(10, 0),
+      paint: Paint()..color = const Color(0xFFFFB74D),
       priority: 3,
     );
     add(_weaponVisual);
@@ -85,7 +107,6 @@ class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurviv
     _animTimer += dt;
 
     position += _moveDirection * moveSpeed * dt;
-    _clampToWorldBounds();
 
     final walkBob = sin(_animTimer * 8) * 1.8;
     _bodyVisual.position.y = walkBob;
@@ -93,7 +114,7 @@ class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurviv
     final facingDirection = _currentFacingDirection();
     _weaponVisual.angle = facingDirection.screenAngle();
     _weaponVisual.position = facingDirection * 10;
-    _weaponVisual.scale = Vector2.all(1 + currentWeapon.damageMultiplier * 0.08);
+    _weaponVisual.scale = Vector2(1 + currentWeapon.damageMultiplier * 0.08, 1);
 
     _attackTimer += dt;
     if (_attackTimer >= currentWeapon.cooldown / _fireRateMultiplier) {
@@ -104,7 +125,7 @@ class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurviv
     if (_damageFlashTimer > 0) {
       _damageFlashTimer -= dt;
       if (_damageFlashTimer <= 0) {
-        opacity = 1;
+        _bodyVisual.paint.color = const Color(0xFF42A5F5);
       }
     }
   }
@@ -118,13 +139,14 @@ class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurviv
   }
 
   void _shoot() {
-    final target = _attackSystem.findNearestZombie(player: this, zombies: game.zombies);
-    if (target == null) return;
-
     final weapon = currentWeapon;
-    final bullet = _attackSystem.createBullet(
-      player: this,
-      target: target,
+    final bulletDirection = _aimDirection.length2 > 0.001 ? _aimDirection.normalized() : _autoAimDirection();
+    if (bulletDirection.length2 <= 0.0001) return;
+
+    final muzzlePosition = position + bulletDirection * (radius + 12);
+    final bullet = _attackSystem.createBulletInDirection(
+      origin: muzzlePosition,
+      direction: bulletDirection,
       damage: damage * weapon.damageMultiplier,
       speed: weapon.bulletSpeed,
       radius: weapon.bulletRadius,
@@ -132,11 +154,15 @@ class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurviv
       pierce: weapon.pierce,
     );
 
-    if (_aimDirection.length2 > 0.001) {
-      bullet.direction.setFrom(_aimDirection.normalized());
-    }
-
     game.addBullet(bullet);
+  }
+
+  Vector2 _autoAimDirection() {
+    final target = _attackSystem.findNearestZombie(player: this, zombies: game.zombies);
+    if (target == null) {
+      return Vector2.zero();
+    }
+    return (target.position - position).normalized();
   }
 
   bool isWeaponOwned(WeaponTier tier) => _ownedWeapons.contains(tier);
@@ -190,17 +216,14 @@ class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurviv
   void _updateArmorVisual() {
     _armorVisual?.removeFromParent();
     if (_equippedArmor == null) return;
-    Svg.load('svg/armor.svg').then((svg) {
-      _armorVisual = SvgComponent(
-        svg: svg,
-        size: Vector2.all(34),
-        anchor: Anchor.center,
-        position: Vector2.zero(),
-        priority: 1,
-      );
-      _armorVisual!.opacity = 0.55;
-      add(_armorVisual!);
-    });
+    _armorVisual = RectangleComponent(
+      size: Vector2(24, 16),
+      anchor: Anchor.center,
+      position: Vector2.zero(),
+      paint: Paint()..color = const Color(0x8855C0FF),
+      priority: 1,
+    );
+    add(_armorVisual!);
   }
 
   Vector2 _currentFacingDirection() {
@@ -221,7 +244,7 @@ class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurviv
     final reduction = equippedArmor?.damageReduction ?? 0;
     final reducedDamage = amount * (1 - reduction);
     currentHp = max(0, currentHp - reducedDamage);
-    opacity = 0.5;
+    _bodyVisual.paint.color = const Color(0xFFEF5350);
     _damageFlashTimer = 0.3;
   }
 
@@ -243,8 +266,9 @@ class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurviv
     _ownedArmors.clear();
     _equippedArmor = null;
     _armorVisual?.removeFromParent();
-    opacity = 1;
+    _bodyVisual.paint.color = const Color(0xFF42A5F5);
   }
+
 
   void _recalculateStats() {
     final armor = equippedArmor;
@@ -253,9 +277,4 @@ class PlayerComponent extends CircleComponent with HasGameReference<ZombieSurviv
     currentHp = (maxHp * hpRatio).clamp(0, maxHp);
   }
 
-  void _clampToWorldBounds() {
-    final worldSize = game.size;
-    position.x = position.x.clamp(radius, worldSize.x - radius);
-    position.y = position.y.clamp(radius, worldSize.y - radius);
-  }
 }
